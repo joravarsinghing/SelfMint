@@ -27,13 +27,13 @@ data class TasksUiState(
 data class TaskFilterState(
     val selectedTagIds: Set<Long> = emptySet(),
     val type: TaskFilterType = TaskFilterType.ALL,
-    val status: TaskFilterStatus = TaskFilterStatus.ACTIVE_ONLY,
+    val status: TaskFilterStatus = TaskFilterStatus.ALL,
     val sort: TaskSortOption = TaskSortOption.MANUAL_ORDER
 ) {
     val isDefault: Boolean
         get() = selectedTagIds.isEmpty() &&
             type == TaskFilterType.ALL &&
-            status == TaskFilterStatus.ACTIVE_ONLY &&
+            status == TaskFilterStatus.ALL &&
             sort == TaskSortOption.MANUAL_ORDER
 }
 

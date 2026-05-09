@@ -28,6 +28,7 @@ class RewardsViewModel(
         observeRewards()
         observeTodayRedemptions()
         observeTags()
+        observeRewardTagLinks()
     }
 
     private fun observeWallet() {
@@ -57,14 +58,33 @@ class RewardsViewModel(
     private fun observeTags() {
         viewModelScope.launch {
             rewardRepository.observeTags().collect { tags ->
-                _uiState.update { it.copy(tags = tags).withVisibleRewards() }
+                _uiState.update { it.copy(tags = tags).withRewardTags().withVisibleRewards() }
             }
         }
     }
 
+    private fun observeRewardTagLinks() {
+        viewModelScope.launch {
+            rewardRepository.observeRewardTagLinks().collect { links ->
+                _uiState.update { it.copy(rewardTagLinks = links).withRewardTags().withVisibleRewards() }
+            }
+        }
+    }
+
+    private fun RewardsUiState.withRewardTags(): RewardsUiState {
+        val tagsById = tags.associateBy { it.id }
+        val rewardTags = rewardTagLinks
+            .groupBy { it.rewardId }
+            .mapValues { (_, links) -> links.mapNotNull { tagsById[it.tagId] } }
+        return copy(rewardTags = rewardTags)
+    }
+
     private fun RewardsUiState.withVisibleRewards(): RewardsUiState {
         val filteredRewards = rewards
-            .filter { filterState.selectedTagIds.isEmpty() }
+            .filter { reward ->
+                filterState.selectedTagIds.isEmpty() ||
+                    rewardTags[reward.id].orEmpty().any { it.id in filterState.selectedTagIds }
+            }
             .filter { reward ->
                 when (filterState.type) {
                     RewardFilterType.ALL -> true
@@ -185,7 +205,8 @@ class RewardsViewModel(
             rewardRepository.addReward(
                 title = title,
                 cost = cost,
-                isPermanent = isPermanent
+                isPermanent = isPermanent,
+                tagIds = state.selectedTagIds.toList()
             )
 
             _uiState.update {
@@ -193,6 +214,7 @@ class RewardsViewModel(
                     rewardTitleInput = "",
                     rewardCostInput = "",
                     selectedRewardType = RewardType.ONE_TIME,
+                    selectedTagIds = emptySet(),
                     isSaving = false
                 )
             }
@@ -205,6 +227,10 @@ class RewardsViewModel(
                 rewardTitleInput = reward.title,
                 rewardCostInput = reward.cost.toString(),
                 selectedRewardType = if (reward.isPermanent) RewardType.DAILY else RewardType.ONE_TIME,
+                selectedTagIds = it.rewardTagLinks
+                    .filter { link -> link.rewardId == reward.id }
+                    .map { link -> link.tagId }
+                    .toSet(),
                 isAddExpanded = true
             )
         }
@@ -220,12 +246,49 @@ class RewardsViewModel(
                 rewardTitleInput = title,
                 rewardCostInput = cost.toString(),
                 selectedRewardType = type,
+                selectedTagIds = it.rewardTagLinks
+                    .filter { link -> link.rewardId == reward.id }
+                    .map { link -> link.tagId }
+                    .toSet(),
                 isAddExpanded = true
             )
         }
 
         viewModelScope.launch {
             rewardRepository.deleteReward(reward)
+        }
+    }
+
+    fun toggleTagSelection(tagId: Long) {
+        _uiState.update { current ->
+            val selectedTagIds = if (tagId in current.selectedTagIds) {
+                current.selectedTagIds - tagId
+            } else {
+                current.selectedTagIds + tagId
+            }
+            current.copy(selectedTagIds = selectedTagIds)
+        }
+    }
+
+    fun clearSelectedTagsAfterSave() {
+        _uiState.update { it.copy(selectedTagIds = emptySet()) }
+    }
+
+    fun addTag(name: String, colorHex: String) {
+        viewModelScope.launch {
+            rewardRepository.addTag(name, colorHex)
+        }
+    }
+
+    fun updateTag(tag: com.ravaroj.habitcurrency.data.local.entity.TagEntity) {
+        viewModelScope.launch {
+            rewardRepository.updateTag(tag)
+        }
+    }
+
+    fun deleteTag(tag: com.ravaroj.habitcurrency.data.local.entity.TagEntity) {
+        viewModelScope.launch {
+            rewardRepository.deleteTag(tag)
         }
     }
 

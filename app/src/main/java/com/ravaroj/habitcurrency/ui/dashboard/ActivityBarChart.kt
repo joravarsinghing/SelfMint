@@ -12,6 +12,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ravaroj.habitcurrency.ui.theme.RewardsOrange
@@ -25,9 +26,9 @@ fun ActivityBarChart(
     earned: List<Int>,
     spent: List<Int>,
     labels: List<String>,
+    chartHeight: Dp = 180.dp,
     modifier: Modifier = Modifier
 ) {
-    val totalHeight = 180.dp
     val topPadding = 16.dp    // As per Milestone 8.3 Step 1
     val bottomPadding = 28.dp // As per Milestone 8.3 Step 1
     val leftPadding = 32.dp   // Space for grid labels
@@ -43,7 +44,7 @@ fun ActivityBarChart(
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(totalHeight)
+                .height(chartHeight)
         ) {
             val width = size.width
             val height = size.height

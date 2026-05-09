@@ -6,6 +6,7 @@ import com.ravaroj.habitcurrency.data.local.dao.TagDao
 import com.ravaroj.habitcurrency.data.local.entity.RedemptionEntity
 import com.ravaroj.habitcurrency.data.local.entity.RewardEntity
 import com.ravaroj.habitcurrency.data.local.entity.TagEntity
+import com.ravaroj.habitcurrency.data.local.entity.RewardTagCrossRef
 import kotlinx.coroutines.flow.Flow
 
 class RewardRepository(
@@ -24,17 +25,40 @@ class RewardRepository(
 
     fun observeTags(): Flow<List<TagEntity>> = tagDao.observeTags()
 
+    fun observeRewardTagLinks(): Flow<List<RewardTagCrossRef>> = tagDao.observeRewardTagLinks()
+
+    suspend fun addTag(name: String, colorHex: String): Boolean {
+        val cleanName = name.trim().replaceFirstChar { it.uppercase() }
+        if (cleanName.isBlank()) return false
+        if (tagDao.getTagCount() >= MAX_TAGS) return false
+        return tagDao.insertTag(
+            TagEntity(
+                name = cleanName,
+                colorHex = colorHex,
+            )
+        ) != -1L
+    }
+
+    suspend fun updateTag(tag: TagEntity) {
+        tagDao.updateTag(tag)
+    }
+
+    suspend fun deleteTag(tag: TagEntity) {
+        tagDao.deleteTagAndLinks(tag)
+    }
+
     suspend fun addReward(
         title: String,
         cost: Int,
-        isPermanent: Boolean
+        isPermanent: Boolean,
+        tagIds: List<Long> = emptyList()
     ) {
         val cleanTitle = title.trim().replaceFirstChar { it.uppercase() }
         if (cleanTitle.isBlank()) return
 
         val maxOrder = rewardDao.getMaxDisplayOrder() ?: 0
 
-        rewardDao.insert(
+        val rewardId = rewardDao.insert(
             RewardEntity(
                 title = cleanTitle,
                 cost = cost.coerceAtLeast(0),
@@ -43,6 +67,7 @@ class RewardRepository(
                 displayOrder = maxOrder + 1
             )
         )
+        assignTagsToReward(rewardId, tagIds)
     }
 
     suspend fun updateReward(
@@ -127,5 +152,13 @@ class RewardRepository(
 
     suspend fun swapRewardOrder(reward1: RewardEntity, reward2: RewardEntity) {
         rewardDao.swapDisplayOrders(reward1, reward2)
+    }
+
+    suspend fun assignTagsToReward(rewardId: Long, tagIds: List<Long>) {
+        tagDao.replaceRewardTagLinks(rewardId, tagIds.distinct())
+    }
+
+    companion object {
+        const val MAX_TAGS = 10
     }
 }

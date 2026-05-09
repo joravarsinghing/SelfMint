@@ -13,6 +13,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -34,7 +35,9 @@ fun AppNavigation() {
 
     Scaffold(
         bottomBar = {
-            NavigationBar {
+            NavigationBar(
+                modifier = Modifier.navigationBarsPadding()
+            ) {
                 val navBackStackEntry = navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry.value?.destination?.route
 

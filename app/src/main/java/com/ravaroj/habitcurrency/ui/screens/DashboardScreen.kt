@@ -3,8 +3,10 @@ package com.ravaroj.habitcurrency.ui.screens
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -25,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.text.font.FontWeight
 import com.ravaroj.habitcurrency.HabitCurrencyApplication
@@ -51,6 +54,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.material3.Icon
@@ -66,6 +70,7 @@ import com.ravaroj.habitcurrency.data.repository.DemoDataRepository
 import com.ravaroj.habitcurrency.data.repository.TaskRepository
 import com.ravaroj.habitcurrency.data.local.entity.TagEntity
 import com.ravaroj.habitcurrency.ui.tasks.TasksViewModel
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
 import com.ravaroj.habitcurrency.ui.dashboard.ActivityBarChart
@@ -152,27 +157,69 @@ fun DashboardScreen() {
                 text = "Dashboard",
                 style = MaterialTheme.typography.headlineMedium
             )
-            Text(
-                text = "Wallet: $${uiState.walletBalance}",
-                style = MaterialTheme.typography.titleMedium,
-                color = DashboardWhite
-            )
+            IconButton(onClick = { showSettingsDialog = true }) {
+                Icon(
+                    imageVector = Icons.Filled.Settings,
+                    contentDescription = "Dashboard settings",
+                    tint = DashboardWhite
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val aspect = maxHeight.value / maxWidth.value
+            // Keep scrolling available, but shrink charts on tall screens to avoid the bottom being cut off.
+            val isTallScreen = aspect > (4f / 3f)
+            val chartHeight = if (isTallScreen) 140.dp else 180.dp
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(bottom = 16.dp)
+            ) {
             // 1. Today Card + Settings
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    Card(
+                        modifier = Modifier
+                            .weight(2f) // ~40%
+                            .fillMaxHeight()
+                            .heightIn(min = 140.dp),
+                        colors = CardDefaults.cardColors()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Wallet",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = DashboardWhite
+                                )
+                            )
+                            Text(
+                                text = "$${uiState.walletBalance}",
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    color = DashboardWhite,
+                                    fontSize = 41.sp
+                                ),
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                    }
+
                     StatsCard(
-                        title = "Today - ${DateUtils.displayFull(today)}",
+                        title = DateUtils.displayFull(today),
                         titleColor = DashboardWhite,
                         lines = listOf(
                             buildAnnotatedString {
@@ -190,23 +237,8 @@ fun DashboardScreen() {
                             AnnotatedString("Active tasks: ${uiState.activeToday}"),
                             AnnotatedString("Completed tasks: ${uiState.completedToday}")
                         ),
-                        modifier = Modifier.weight(3f)
+                        modifier = Modifier.weight(3f) // ~60%
                     )
-
-                    Card(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clickable { showSettingsDialog = true },
-                        colors = CardDefaults.cardColors()
-                    ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = "⚙", style = MaterialTheme.typography.headlineLarge)
-                        }
-                    }
                 }
             }
 
@@ -228,7 +260,8 @@ fun DashboardScreen() {
                         ActivityBarChart(
                             earned = uiState.last7DaysEarned.map { it.second }.reversed(),
                             spent = uiState.last7DaysSpent.map { it.second }.reversed(),
-                            labels = uiState.labels
+                            labels = uiState.labels,
+                            chartHeight = chartHeight
                         )
                     }
                 }
@@ -251,13 +284,17 @@ fun DashboardScreen() {
                         )
                         WalletLineChart(
                             values = uiState.walletHistory,
-                            labels = uiState.labels
+                            labels = uiState.labels,
+                            chartHeight = chartHeight
                         )
                     }
                 }
             }
+            }
         }
     }
+
+    // Dialogs
 
     if (showSettingsDialog) {
         AlertDialog(
@@ -265,7 +302,21 @@ fun DashboardScreen() {
             title = { Text("Dashboard Settings") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            showEditTagsDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = DashboardWhite),
+                        border = BorderStroke(1.dp, DashboardWhite)
+                    ) {
+                        Text("Edit Tags")
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     Text("Demo Tools", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
                     OutlinedButton(
                         onClick = { showGenerateConfirm = true },
                         modifier = Modifier.fillMaxWidth(),
@@ -277,20 +328,10 @@ fun DashboardScreen() {
                     OutlinedButton(
                         onClick = { showClearConfirm = true },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = DashboardWhite),
-                        border = BorderStroke(1.dp, DashboardWhite)
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
                     ) {
                         Text("Clear Demo Data")
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            showEditTagsDialog = true
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = DashboardWhite),
-                        border = BorderStroke(1.dp, DashboardWhite)
-                    ) {
-                        Text("Edit Tags")
                     }
                 }
             },

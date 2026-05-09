@@ -1,6 +1,7 @@
 package com.ravaroj.habitcurrency.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -64,7 +65,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ravaroj.habitcurrency.HabitCurrencyApplication
 import com.ravaroj.habitcurrency.data.local.entity.RedemptionEntity
 import com.ravaroj.habitcurrency.data.local.entity.RewardEntity
+import com.ravaroj.habitcurrency.data.local.entity.TagEntity
 import com.ravaroj.habitcurrency.data.repository.RewardRepository
+import com.ravaroj.habitcurrency.ui.tasks.TasksViewModel
 import com.ravaroj.habitcurrency.ui.rewards.RewardFilterStatus
 import com.ravaroj.habitcurrency.ui.rewards.RewardFilterType
 import com.ravaroj.habitcurrency.ui.rewards.RewardSortOption
@@ -72,6 +75,7 @@ import com.ravaroj.habitcurrency.ui.rewards.RewardType
 import com.ravaroj.habitcurrency.ui.rewards.RewardsUiState
 import com.ravaroj.habitcurrency.ui.rewards.RewardsViewModel
 import com.ravaroj.habitcurrency.ui.rewards.RewardsViewModelFactory
+import com.ravaroj.habitcurrency.ui.theme.InactiveNavGrey
 import com.ravaroj.habitcurrency.ui.theme.RewardsOrange
 
 @Composable
@@ -98,6 +102,11 @@ fun RewardsScreen() {
     var isReorderMode by rememberSaveable { mutableStateOf(false) }
     var showFilterDialog by rememberSaveable { mutableStateOf(false) }
     val isManualSort = uiState.filterState.sort == RewardSortOption.MANUAL_ORDER
+    var showTagManager by rememberSaveable { mutableStateOf(false) }
+    var editingTag by remember { mutableStateOf<TagEntity?>(null) }
+    var tagNameInput by remember { mutableStateOf("") }
+    var selectedTagColor by remember { mutableStateOf(TasksViewModel.DEFAULT_TAG_COLORS.first()) }
+    var tagError by remember { mutableStateOf<String?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -192,6 +201,7 @@ fun RewardsScreen() {
                     ) { reward ->
                         RewardCard(
                             reward = reward,
+                            tags = uiState.rewardTags[reward.id].orEmpty(),
                             isReorderMode = isReorderMode,
                             onMoveUp = { viewModel.moveRewardUp(reward) },
                             onMoveDown = { viewModel.moveRewardDown(reward) },
@@ -266,6 +276,8 @@ fun RewardsScreen() {
             onTitleChange = viewModel::onRewardTitleChanged,
             onCostChange = viewModel::onRewardCostChanged,
             onTypeSelect = viewModel::onRewardTypeSelected,
+            onTagSelectionToggle = viewModel::toggleTagSelection,
+            onShowTagManager = { showTagManager = true },
             onSave = viewModel::saveReward,
             onDismiss = { viewModel.toggleAddSection() }
         )
@@ -292,6 +304,7 @@ fun RewardsScreen() {
             onDismiss = { showFilterDialog = false }
         )
     }
+
 }
 
 @Composable
@@ -300,11 +313,14 @@ fun AddRewardDialog(
     onTitleChange: (String) -> Unit,
     onCostChange: (String) -> Unit,
     onTypeSelect: (RewardType) -> Unit,
+    onTagSelectionToggle: (Long) -> Unit,
+    onShowTagManager: () -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit
 ) {
     var isDialogExpanded by rememberSaveable { mutableStateOf(false) }
     var showAdaptableRewardsInfo by rememberSaveable { mutableStateOf(false) }
+    var tagsExpanded by rememberSaveable { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -404,18 +420,89 @@ fun AddRewardDialog(
                             }
                         }
 
-                        // Disabled Tags dropdown/field
-                        OutlinedTextField(
-                            value = "",
-                            onValueChange = {},
-                            enabled = false,
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Tags*") },
-                            placeholder = { Text("Coming soon...") },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                disabledBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                        Text("Tags", style = MaterialTheme.typography.bodyLarge)
+                        if (uiState.selectedTagIds.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                uiState.tags
+                                    .filter { it.id in uiState.selectedTagIds }
+                                    .take(3)
+                                    .forEach { tag ->
+                                        RewardTagChip(tag = tag)
+                                    }
+                                if (uiState.selectedTagIds.size > 3) {
+                                    Text("+${uiState.selectedTagIds.size - 3}")
+                                }
+                            }
+                        }
+                        Column {
+                            OutlinedButton(
+                                onClick = { tagsExpanded = !tagsExpanded },
+                                modifier = Modifier.fillMaxWidth(),
+                                border = BorderStroke(1.dp, RewardsOrange),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = RewardsOrange
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Select Tags")
+                                    Icon(
+                                        imageVector = if (tagsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                        contentDescription = null
+                                    )
+                                }
+                            }
+                            if (tagsExpanded) {
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 260.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    tonalElevation = 3.dp
+                                ) {
+                                    LazyColumn {
+                                        item {
+                                            DropdownMenuItem(
+                                                text = { Text("+ Add Tag") },
+                                                onClick = {
+                                                    tagsExpanded = false
+                                                    onShowTagManager()
+                                                }
+                                            )
+                                        }
+                                        items(uiState.tags, key = { it.id }) { tag ->
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Checkbox(
+                                                            checked = tag.id in uiState.selectedTagIds,
+                                                            onCheckedChange = null,
+                                                            colors = CheckboxDefaults.colors(checkedColor = RewardsOrange)
+                                                        )
+                                                        RewardTagChip(tag = tag)
+                                                    }
+                                                },
+                                                onClick = { onTagSelectionToggle(tag.id) }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (uiState.tags.size >= 10) {
+                            Text(
+                                text = "Max 10 tags",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = InactiveNavGrey
                             )
-                        )
+                        }
 
                         // Adaptable rewards switch
                         Row(
@@ -436,7 +523,7 @@ fun AddRewardDialog(
                                 )
                             }
                             Switch(
-                                checked = true,
+                                checked = false,
                                 onCheckedChange = { /* Future logic */ },
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = Color.Black,
@@ -597,6 +684,186 @@ private fun RewardFilterDialog(
             }
         }
     }
+
+}
+
+@Composable
+private fun RewardTagChip(tag: TagEntity) {
+    Row(
+        modifier = Modifier
+            .background(rewardColorFromHex(tag.colorHex).copy(alpha = 0.18f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 8.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .width(8.dp)
+                .height(8.dp)
+                .background(rewardColorFromHex(tag.colorHex), RoundedCornerShape(4.dp))
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(text = tag.name, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+private fun rewardColorFromHex(colorHex: String): Color {
+    return Color(android.graphics.Color.parseColor(colorHex))
+}
+
+@Composable
+private fun RewardTagManagerDialog(
+    uiState: RewardsUiState,
+    name: String,
+    selectedColor: String,
+    error: String?,
+    onNameChange: (String) -> Unit,
+    onColorSelect: (String) -> Unit,
+    onAdd: () -> Unit,
+    onEdit: (TagEntity) -> Unit,
+    onDelete: (TagEntity) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Manage Tags") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = onNameChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Tag name") },
+                    singleLine = true
+                )
+                Text("Color", style = MaterialTheme.typography.bodyMedium)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TasksViewModel.DEFAULT_TAG_COLORS.chunked(5).forEach { colors ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            colors.forEach { colorHex ->
+                                val isSelected = selectedColor == colorHex
+                                Box(
+                                    modifier = Modifier
+                                        .width(28.dp)
+                                        .height(28.dp)
+                                        .background(rewardColorFromHex(colorHex), RoundedCornerShape(14.dp))
+                                        .clickable { onColorSelect(colorHex) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isSelected) {
+                                        Text("✓", color = Color.White)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = RewardsOrange) }
+                OutlinedButton(
+                    onClick = onAdd,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = uiState.tags.size < RewardRepository.MAX_TAGS,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = RewardsOrange),
+                    border = BorderStroke(1.dp, RewardsOrange)
+                ) {
+                    Text("+ Add Tag")
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                uiState.tags.forEach { tag ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RewardTagChip(tag = tag)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(
+                                onClick = { onEdit(tag) },
+                                colors = ButtonDefaults.textButtonColors(contentColor = RewardsOrange)
+                            ) {
+                                Text("Edit")
+                            }
+                            TextButton(
+                                onClick = { onDelete(tag) },
+                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Text("Delete")
+                            }
+                        }
+                    }
+                }
+                if (uiState.tags.size >= RewardRepository.MAX_TAGS) {
+                    Text("Max 10 tags", style = MaterialTheme.typography.bodySmall, color = RewardsOrange)
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        }
+    )
+}
+
+@Composable
+private fun RewardTagEditDialog(
+    tag: TagEntity,
+    name: String,
+    selectedColor: String,
+    error: String?,
+    onNameChange: (String) -> Unit,
+    onColorSelect: (String) -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Tag") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = onNameChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Tag name") },
+                    singleLine = true
+                )
+                Text("Color", style = MaterialTheme.typography.bodyMedium)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TasksViewModel.DEFAULT_TAG_COLORS.chunked(5).forEach { colors ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            colors.forEach { colorHex ->
+                                val isSelected = selectedColor == colorHex
+                                Box(
+                                    modifier = Modifier
+                                        .width(28.dp)
+                                        .height(28.dp)
+                                        .background(rewardColorFromHex(colorHex), RoundedCornerShape(14.dp))
+                                        .clickable { onColorSelect(colorHex) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isSelected) {
+                                        Text("✓", color = Color.White)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = RewardsOrange) }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onSave,
+                colors = ButtonDefaults.textButtonColors(contentColor = RewardsOrange)
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 @Composable
@@ -624,6 +891,7 @@ private fun RewardFilterCheckRow(
 @Composable
 private fun RewardCard(
     reward: RewardEntity,
+    tags: List<TagEntity> = emptyList(),
     isReorderMode: Boolean = false,
     onMoveUp: () -> Unit = {},
     onMoveDown: () -> Unit = {},
@@ -642,73 +910,91 @@ private fun RewardCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
-        Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            if (isReorderMode) {
-                Column(
-                    modifier = Modifier.padding(end = 8.dp),
-                    verticalArrangement = Arrangement.Center
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                if (isReorderMode) {
+                    Column(
+                        modifier = Modifier.padding(end = 8.dp),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        IconButton(onClick = onMoveUp, modifier = Modifier.height(24.dp)) {
+                            Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move Up")
+                        }
+                        IconButton(onClick = onMoveDown, modifier = Modifier.height(24.dp)) {
+                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move Down")
+                        }
+                    }
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = reward.title,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    val typeText = if (reward.isPermanent) " • Daily" else ""
+                    Text(
+                        text = "Reward cost: $${reward.cost}$typeText",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (!isReorderMode) {
+                        Button(
+                            onClick = onRedeem,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = RewardsOrange,
+                                contentColor = Color.Black
+                            )
+                        ) {
+                            Text("Redeem")
+                        }
+                    }
+
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Options")
+                        }
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Edit") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onEdit()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Delete") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onDelete()
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (tags.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp)
+                        .height(2.dp)
                 ) {
-                    IconButton(onClick = onMoveUp, modifier = Modifier.height(24.dp)) {
-                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move Up")
-                    }
-                    IconButton(onClick = onMoveDown, modifier = Modifier.height(24.dp)) {
-                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move Down")
-                    }
-                }
-            }
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = reward.title,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                val typeText = if (reward.isPermanent) " • Daily" else ""
-                Text(
-                    text = "Reward cost: $${reward.cost}$typeText",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (!isReorderMode) {
-                    Button(
-                        onClick = onRedeem,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = RewardsOrange,
-                            contentColor = Color.Black
-                        )
-                    ) {
-                        Text("Redeem")
-                    }
-                }
-
-                Box {
-                    IconButton(onClick = { menuExpanded = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Options")
-                    }
-                    DropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Edit") },
-                            onClick = {
-                                menuExpanded = false
-                                onEdit()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Delete") },
-                            onClick = {
-                                menuExpanded = false
-                                onDelete()
-                            }
+                    tags.forEach { tag ->
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(2.dp)
+                                .background(rewardColorFromHex(tag.colorHex))
                         )
                     }
                 }

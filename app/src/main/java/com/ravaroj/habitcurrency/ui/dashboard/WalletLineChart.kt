@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ravaroj.habitcurrency.util.DateUtils
@@ -21,9 +22,9 @@ import kotlin.math.max
 fun WalletLineChart(
     values: List<Int>,
     labels: List<String>,
+    chartHeight: Dp = 180.dp,
     modifier: Modifier = Modifier
 ) {
-    val totalHeight = 180.dp
     val topPadding = 24.dp
     val bottomPadding = 28.dp // Space for date labels
     val leftPadding = 32.dp   // Space for grid labels
@@ -35,7 +36,7 @@ fun WalletLineChart(
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(totalHeight)
+                .height(chartHeight)
         ) {
             val width = size.width
             val height = size.height

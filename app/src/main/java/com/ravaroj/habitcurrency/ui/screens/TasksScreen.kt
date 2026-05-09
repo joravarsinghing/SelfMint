@@ -579,12 +579,22 @@ fun AddTaskDialog(
                             OutlinedButton(
                                 onClick = { tagsExpanded = !tagsExpanded },
                                 modifier = Modifier.fillMaxWidth(),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                                border = BorderStroke(1.dp, TasksBlue),
                                 colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.onSurface
+                                    contentColor = TasksBlue
                                 )
                             ) {
-                                Text("Select Tags")
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Select Tags")
+                                    Icon(
+                                        imageVector = if (tagsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                        contentDescription = null
+                                    )
+                                }
                             }
                             if (tagsExpanded) {
                                 Surface(
@@ -651,7 +661,7 @@ fun AddTaskDialog(
                                 )
                             }
                             Switch(
-                                checked = true,
+                                checked = false,
                                 onCheckedChange = { /* Future logic */ },
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = Color.Black,
