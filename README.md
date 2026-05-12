@@ -1,4 +1,4 @@
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/ravaroj/habit-currency-android/actions) [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![Latest Release](https://img.shields.io/badge/release-v2.00.01-blue)](https://github.com/ravaroj/habit-currency-android/releases/latest)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/ravaroj/habit-currency-android/actions) [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE.md) [![Latest Release](https://img.shields.io/badge/release-v2.00.01-blue)](https://github.com/joravarsinghing/SelfMint/releases/tag/v2.00.01)
 
 # SelfMint 
 
@@ -64,7 +64,7 @@ SelfMint empowers you to build a personal economy around your habits and goals. 
 
 You can find signed builds on GitHub Releases.
 
-*   Go to the [latest release](https://github.com/ravaroj/habit-currency-android/releases/latest) and download the APK.
+*   Go to the [latest release](https://github.com/joravarsinghing/SelfMint/releases) and download the APK.
 *   Install on your Android device (you may need to allow “install unknown apps” for your browser/files app).
 
 ---
@@ -88,19 +88,8 @@ You can find signed builds on GitHub Releases.
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [MIT License](./LICENSE.md).
 
----
-
-## 🤝 Contributing
-
-We welcome contributions! If you're interested in improving SelfMint, please consider:
-
-*   Reporting bugs
-*   Suggesting new features
-*   Submitting pull requests
-
-Please read our [CONTRIBUTING.md](CONTRIBUTING.md) for more details (coming soon).
 
 ---
 
