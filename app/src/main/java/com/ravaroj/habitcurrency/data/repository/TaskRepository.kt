@@ -69,6 +69,7 @@ class TaskRepository(
                 isActive = true
             )
         )
+        tagDao.replaceTemplateTagLinks(templateId, tagIds.distinct())
 
         val maxOrder = taskInstanceDao.getMaxDisplayOrder(date) ?: 0
 
@@ -158,6 +159,7 @@ class TaskRepository(
     suspend fun deleteTask(task: TaskInstanceEntity) {
         tagDao.clearTaskTagLinks(task.id)
         if (task.isFromDailyTemplate && task.templateId != null) {
+            tagDao.clearTemplateTagLinks(task.templateId)
             dailyTaskTemplateDao.deleteById(task.templateId)
         }
         taskInstanceDao.delete(task)
@@ -166,6 +168,7 @@ class TaskRepository(
     suspend fun prepareTaskForEdit(task: TaskInstanceEntity) {
         tagDao.clearTaskTagLinks(task.id)
         if (task.isFromDailyTemplate && task.templateId != null) {
+            tagDao.clearTemplateTagLinks(task.templateId)
             dailyTaskTemplateDao.deleteById(task.templateId)
         }
         taskInstanceDao.delete(task)

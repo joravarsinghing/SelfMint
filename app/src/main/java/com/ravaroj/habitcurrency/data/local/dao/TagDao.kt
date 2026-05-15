@@ -7,6 +7,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
+import com.ravaroj.habitcurrency.data.local.entity.DailyTaskTemplateTagCrossRef
 import com.ravaroj.habitcurrency.data.local.entity.RewardTagCrossRef
 import com.ravaroj.habitcurrency.data.local.entity.TagEntity
 import com.ravaroj.habitcurrency.data.local.entity.TaskTagCrossRef
@@ -95,10 +96,36 @@ interface TagDao {
         }
     }
 
+    @Query("DELETE FROM daily_task_template_tag_cross_ref WHERE templateId = :templateId")
+    suspend fun clearTemplateTagLinks(templateId: Long)
+
+    @Query("DELETE FROM daily_task_template_tag_cross_ref WHERE tagId = :tagId")
+    suspend fun clearTemplateLinksForTag(tagId: Long)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTemplateTagLinks(links: List<DailyTaskTemplateTagCrossRef>)
+
+    @Query("""
+        SELECT tags.* FROM tags
+        INNER JOIN daily_task_template_tag_cross_ref ON tags.id = daily_task_template_tag_cross_ref.tagId
+        WHERE daily_task_template_tag_cross_ref.templateId = :templateId
+        ORDER BY tags.createdAt ASC, tags.name ASC
+    """)
+    suspend fun getTagsForTemplate(templateId: Long): List<TagEntity>
+
+    @Transaction
+    suspend fun replaceTemplateTagLinks(templateId: Long, tagIds: List<Long>) {
+        clearTemplateTagLinks(templateId)
+        if (tagIds.isNotEmpty()) {
+            insertTemplateTagLinks(tagIds.map { tagId -> DailyTaskTemplateTagCrossRef(templateId = templateId, tagId = tagId) })
+        }
+    }
+
     @Transaction
     suspend fun deleteTagAndLinks(tag: TagEntity) {
         clearLinksForTag(tag.id)
         clearRewardLinksForTag(tag.id)
+        clearTemplateLinksForTag(tag.id)
         deleteTag(tag)
     }
 }

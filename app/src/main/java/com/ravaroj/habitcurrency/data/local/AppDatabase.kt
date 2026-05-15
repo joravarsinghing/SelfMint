@@ -12,6 +12,7 @@ import com.ravaroj.habitcurrency.data.local.dao.RewardDao
 import com.ravaroj.habitcurrency.data.local.dao.TagDao
 import com.ravaroj.habitcurrency.data.local.dao.TaskInstanceDao
 import com.ravaroj.habitcurrency.data.local.entity.DailyTaskTemplateEntity
+import com.ravaroj.habitcurrency.data.local.entity.DailyTaskTemplateTagCrossRef
 import com.ravaroj.habitcurrency.data.local.entity.RedemptionEntity
 import com.ravaroj.habitcurrency.data.local.entity.RewardEntity
 import com.ravaroj.habitcurrency.data.local.entity.RewardTagCrossRef
@@ -27,9 +28,10 @@ import com.ravaroj.habitcurrency.data.local.entity.TaskTagCrossRef
         RedemptionEntity::class,
         TagEntity::class,
         TaskTagCrossRef::class,
-        RewardTagCrossRef::class
+        RewardTagCrossRef::class,
+        DailyTaskTemplateTagCrossRef::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -108,6 +110,26 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS daily_task_template_tag_cross_ref (
+                        templateId INTEGER NOT NULL,
+                        tagId INTEGER NOT NULL,
+                        PRIMARY KEY(templateId, tagId)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_daily_task_template_tag_cross_ref_templateId ON daily_task_template_tag_cross_ref(templateId)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_daily_task_template_tag_cross_ref_tagId ON daily_task_template_tag_cross_ref(tagId)"
+                )
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return Instance ?: synchronized(this) {
                 Room.databaseBuilder(
@@ -115,7 +137,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "habit_currency_database"
                 )
-                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                     .build()
                     .also { Instance = it }
             }

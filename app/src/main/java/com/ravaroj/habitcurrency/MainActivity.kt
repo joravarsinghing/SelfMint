@@ -26,6 +26,7 @@ class MainActivity : ComponentActivity() {
             RolloverRepository(
                 taskInstanceDao = appContainer.taskInstanceDao,
                 dailyTaskTemplateDao = appContainer.dailyTaskTemplateDao,
+                tagDao = appContainer.tagDao,
                 redemptionDao = appContainer.redemptionDao,
                 appSettingsDataStore = appContainer.appSettingsDataStore
             ).processNewDayIfNeeded()

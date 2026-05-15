@@ -77,23 +77,21 @@ class DemoDataRepository(
     }
 
     private suspend fun createDailyTemplates(): DemoTemplates {
-        val workout = dailyTaskTemplateDao.insert(
-            DailyTaskTemplateEntity(title = "Workout", rewardValue = 30)
-        )
-        val read = dailyTaskTemplateDao.insert(
-            DailyTaskTemplateEntity(title = "Read 5 pages", rewardValue = 10)
-        )
-        val plan = dailyTaskTemplateDao.insert(
-            DailyTaskTemplateEntity(title = "Plan tomorrow", rewardValue = 10)
-        )
-        val walk = dailyTaskTemplateDao.insert(
-            DailyTaskTemplateEntity(title = "Walk 20 minutes", rewardValue = 15)
-        )
+        val workout = insertTemplate("Workout", 30)
+        val read = insertTemplate("Read 5 pages", 10)
+        val plan = insertTemplate("Plan tomorrow", 10)
+        val walk = insertTemplate("Walk 20 minutes", 15)
         return DemoTemplates(
             workout = workout,
             read = read,
             plan = plan,
             walk = walk
+        )
+    }
+
+    private suspend fun insertTemplate(title: String, rewardValue: Int): Long {
+        return dailyTaskTemplateDao.insert(
+            DailyTaskTemplateEntity(title = title, rewardValue = rewardValue)
         )
     }
 
@@ -140,6 +138,14 @@ class DemoDataRepository(
         templates: DemoTemplates,
         tags: DemoTags
     ): Int {
+        // Link templates to tags once
+        if (dayIndex == 0) {
+            tagDao.replaceTemplateTagLinks(templates.read, listOf(tags.learning))
+            tagDao.replaceTemplateTagLinks(templates.workout, listOf(tags.health))
+            tagDao.replaceTemplateTagLinks(templates.plan, listOf(tags.personal, tags.work))
+            tagDao.replaceTemplateTagLinks(templates.walk, listOf(tags.health))
+        }
+
         var order = 1
         var earned = 0
         insertTask(
